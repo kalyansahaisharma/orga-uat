@@ -1,0 +1,16 @@
+
+<template>
+    <lightning-card title="Welcome Message" icon-name="standard:announcement">
+        <div class="welcome-container">
+            <h1>Welcome to Salesforce!</h1>
+
+            <p>{message}</p>
+
+            <lightning-button
+                label="Click Me"
+                variant="brand"
+                onclick={handleClick}>
+            </lightning-button>
+        </div>
+    </lightning-card>
+</template>
