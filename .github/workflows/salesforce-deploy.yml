@@ -1,0 +1,102 @@
+name: Salesforce CI/CD
+
+on:
+  push:
+    branches:
+      - uat
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salesforce-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-uat:
+    name: Deploy to UAT Developer Org
+    if: github.ref == 'refs/heads/uat'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to UAT org
+        env:
+          SF_SFDX_AUTH_URL: ${{ secrets.SF_SFDX_AUTH_URL_UAT }}
+        run: |
+          test -n "$SF_SFDX_AUTH_URL" || (echo "Missing GitHub secret SF_SFDX_AUTH_URL_UAT" && exit 1)
+          printf '%s' "$SF_SFDX_AUTH_URL" > "$RUNNER_TEMP/sfdx-auth-url.txt"
+          sf org login sfdx-url \
+            --sfdx-url-file "$RUNNER_TEMP/sfdx-auth-url.txt" \
+            --alias uat-org \
+            --set-default
+          rm -f "$RUNNER_TEMP/sfdx-auth-url.txt"
+
+      - name: Validate deployment to UAT
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --target-org uat-org \
+            --dry-run \
+            --wait 60
+
+      - name: Deploy to UAT
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --target-org uat-org \
+            --wait 60
+
+  deploy-main:
+    name: Deploy to Main Developer Org
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Main org
+        env:
+          SF_SFDX_AUTH_URL: ${{ secrets.SF_SFDX_AUTH_URL_MAIN }}
+        run: |
+          test -n "$SF_SFDX_AUTH_URL" || (echo "Missing GitHub secret SF_SFDX_AUTH_URL_MAIN" && exit 1)
+          printf '%s' "$SF_SFDX_AUTH_URL" > "$RUNNER_TEMP/sfdx-auth-url.txt"
+          sf org login sfdx-url \
+            --sfdx-url-file "$RUNNER_TEMP/sfdx-auth-url.txt" \
+            --alias main-org \
+            --set-default
+          rm -f "$RUNNER_TEMP/sfdx-auth-url.txt"
+
+      - name: Validate deployment to Main org
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --target-org main-org \
+            --dry-run \
+            --wait 60
+
+      - name: Deploy to Main org
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --target-org main-org \
+            --wait 60
